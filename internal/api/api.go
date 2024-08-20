@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/rocketseat-education/semana-tech-go-react-server/internal/store/pgstore"
+	"github.com/GuiLxP/AMA---Ask-Me-Anything/internal/store/pgstore"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -59,6 +59,7 @@ func NewHandler(q *pgstore.Queries) http.Handler {
 
 			r.Route("/{room_id}", func(r chi.Router) {
 				r.Get("/", a.handleGetRoom)
+				r.Delete("/", a.handleDeleteRoom)
 
 				r.Route("/messages", func(r chi.Router) {
 					r.Post("/", a.handleCreateRoomMessage)
@@ -395,4 +396,37 @@ func (h apiHandler) handleMarkMessageAsAnswered(w http.ResponseWriter, r *http.R
 			ID: rawID,
 		},
 	})
+}
+
+func (h apiHandler) handleDeleteRoom(w http.ResponseWriter, r *http.Request) {
+	_, rawRoomID, roomID, ok := h.readRoom(w, r)
+	if !ok {
+		return
+	}
+
+	err := h.q.DeleteRoom(r.Context(), roomID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "Room not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("failed to delete room", "error", err)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	// Notify clients that the room has been deleted
+	go func() {
+		h.mu.Lock()
+		if subscribers, ok := h.subscribers[rawRoomID]; ok {
+			for conn, cancel := range subscribers {
+				cancel()     // Cancel the context for all subscribers
+				conn.Close() // Close the connection
+			}
+			delete(h.subscribers, rawRoomID) // Remove the subscribers from the map
+		}
+		h.mu.Unlock()
+	}()
 }

@@ -183,3 +183,28 @@ func (q *Queries) RemoveReactionFromMessage(ctx context.Context, id uuid.UUID) (
 	err := row.Scan(&reaction_count)
 	return reaction_count, err
 }
+
+const deleteRoomMessages = `-- name: DeleteRoomMessages :exec
+DELETE FROM messages
+WHERE room_id = $1
+`
+
+const deleteRoom = `-- name: DeleteRoom :exec
+DELETE FROM rooms
+WHERE id = $1
+`
+
+// DeleteRoom remove a room and its associated messages
+func (q *Queries) DeleteRoom(ctx context.Context, roomID uuid.UUID) error {
+	// Exclui todas as mensagens associadas à sala
+	if _, err := q.db.Exec(ctx, deleteRoomMessages, roomID); err != nil {
+		return err
+	}
+
+	// Exclui a sala
+	if _, err := q.db.Exec(ctx, deleteRoom, roomID); err != nil {
+		return err
+	}
+
+	return nil
+}

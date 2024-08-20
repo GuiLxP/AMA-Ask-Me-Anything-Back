@@ -1,4 +1,4 @@
-module github.com/rocketseat-education/semana-tech-go-react-server
+module github.com/GuiLxP/AMA---Ask-Me-Anything
 
 go 1.22.4
 
