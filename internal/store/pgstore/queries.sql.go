@@ -208,3 +208,13 @@ func (q *Queries) DeleteRoom(ctx context.Context, roomID uuid.UUID) error {
 
 	return nil
 }
+
+func (q *Queries) UpdateMessageWithAnswer(ctx context.Context, messageID uuid.UUID, answer string) error {
+	const query = `
+		UPDATE messages
+		SET answer = $1, answered = TRUE
+		WHERE id = $2
+	`
+	_, err := q.db.Exec(ctx, query, answer, messageID)
+	return err
+}

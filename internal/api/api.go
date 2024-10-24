@@ -430,3 +430,38 @@ func (h apiHandler) handleDeleteRoom(w http.ResponseWriter, r *http.Request) {
 		h.mu.Unlock()
 	}()
 }
+
+func (h apiHandler) handleUpdateMessageWithAnswer(w http.ResponseWriter, r *http.Request) {
+	_, _, _, ok := h.readRoom(w, r)
+	if !ok {
+		return
+	}
+
+	// Extrair o ID da mensagem da URL
+	rawMessageID := chi.URLParam(r, "message_id")
+	messageID, err := uuid.Parse(rawMessageID)
+	if err != nil {
+		http.Error(w, "invalid message id", http.StatusBadRequest)
+		return
+	}
+
+	// Decodificar o corpo da requisição para obter a resposta
+	var req struct {
+		Answer string `json:"answer"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Atualizar a mensagem no banco de dados
+	err = h.q.UpdateMessageWithAnswer(r.Context(), messageID, req.Answer)
+	if err != nil {
+		slog.Error("failed to update message with answer", "error", err)
+		http.Error(w, "something went wrong", http.StatusInternalServerError)
+		return
+	}
+
+	// Retornar uma resposta de sucesso
+	w.WriteHeader(http.StatusOK)
+}
